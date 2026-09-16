@@ -89,7 +89,8 @@ html, body {
 
 .time {
   /* 整組時間只靠 --t 一個變數縮放，比例永遠一致 */
-  --t: calc(clamp(44px, 14vw, 320px) * var(--scale, 1) * var(--fit, 1));
+  /* --base 由 JS 依實際顯示幾個字元挑檔位，--fit 再保證絕對不會超出畫面 */
+  --t: calc(var(--base, clamp(44px, 14vw, 320px)) * var(--scale, 1) * var(--fit, 1));
   display: flex;
   align-items: baseline;
   justify-content: center;
@@ -102,7 +103,6 @@ html, body {
   text-shadow: 0 0 var(--glow-size, 0px) var(--glow-color);
   white-space: nowrap;
 }
-.time.no-ms { --t: calc(clamp(52px, 19vw, 420px) * var(--scale, 1) * var(--fit, 1)); }
 
 .hms { font-size: var(--t); }
 .sep { transition: opacity .12s linear; }
@@ -128,6 +128,108 @@ html, body {
   min-height: 1em;
 }
 .meta span[hidden] { display: none; }
+.meta .status { letter-spacing: .1em; }
+
+/* ---------- 倒數：進度條 ---------- */
+.progress {
+  width: min(70vw, 640px);
+  height: 3px;
+  margin: clamp(14px, 3vh, 30px) auto 0;
+  border-radius: 999px;
+  background: var(--chip);
+  overflow: hidden;
+}
+.progress[hidden] { display: none; }
+.progress i {
+  display: block; height: 100%; width: 100%;
+  border-radius: 999px; background: var(--fg);
+  transform-origin: left center;
+}
+
+/* ---------- 倒數：快速時間 ---------- */
+.presets {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; align-items: center;
+  margin-top: clamp(16px, 3vh, 30px);
+  max-width: min(92vw, 760px);
+}
+.presets[hidden] { display: none; }
+.presets button {
+  border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--fg);
+  font: inherit; font-size: 13px; padding: 8px 14px;
+  cursor: pointer; opacity: .75;
+  transition: background-color .15s, opacity .15s;
+}
+.presets button:hover { background: var(--chip); opacity: 1; }
+.presets button.on { background: var(--chip-on); opacity: 1; border-color: transparent; }
+
+.presets .custom {
+  display: flex; gap: 6px; align-items: center;
+  margin-left: 6px; padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.presets .custom-label { font-size: 12px; color: var(--dim); letter-spacing: .1em; }
+.presets input {
+  width: 58px; text-align: center;
+  border: 0; border-radius: 8px;
+  background: var(--chip); color: var(--fg);
+  font: inherit; font-size: 13px; padding: 9px 6px;
+  -moz-appearance: textfield;
+}
+.presets input:focus { outline: 2px solid var(--chip-on); outline-offset: 0; }
+.presets button.go { border-color: transparent; background: var(--chip-on); opacity: 1; }
+.presets input::-webkit-outer-spin-button,
+.presets input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------- 秒錶：計圈 ---------- */
+.laps {
+  list-style: none;
+  margin: clamp(14px, 3vh, 26px) auto 0;
+  width: min(92vw, 460px);
+  max-height: min(30vh, 260px);
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(12px, 1.5vw, 15px);
+  text-align: left;
+}
+.laps[hidden] { display: none; }
+.laps li {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 7px 10px; border-radius: 8px; color: var(--dim);
+}
+.laps li:nth-child(odd) { background: var(--chip); }
+.laps li b { font-weight: 500; color: var(--fg); }
+.laps li.best b { color: #35d07f; }
+.laps li.worst b { color: #ff6b6b; }
+.laps .no { width: 3.2em; }
+.laps .total { opacity: .6; }
+
+/* ---------- 秒錶／倒數：操作按鈕 ---------- */
+.actions {
+  display: flex; gap: 10px; justify-content: center;
+  margin-top: clamp(18px, 3.5vh, 34px);
+}
+.actions[hidden] { display: none; }
+.act {
+  min-width: 96px; padding: 12px 22px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--fg);
+  font: inherit; font-size: 15px; letter-spacing: .08em;
+  cursor: pointer;
+  transition: background-color .15s, opacity .15s, transform .08s;
+}
+.act:hover { background: var(--chip); }
+.act:active { transform: scale(.97); }
+.act.primary { background: var(--chip-on); }
+.act:disabled { opacity: .3; cursor: default; }
+
+/* 倒數結束：整個畫面閃三下 */
+.stage.finished { animation: alarm 1s ease 3; }
+@keyframes alarm {
+  0%, 100% { background: transparent; }
+  50% { background: color-mix(in srgb, var(--fg) 22%, transparent); }
+}
 
 /* 切換設定時的淡入 */
 .clock.fade { animation: fade .28s ease; }
@@ -153,6 +255,10 @@ html, body {
   transform: translate(-50%, 12px);
   pointer-events: none;
 }
+
+.bar-seg { background: transparent; padding: 0; }
+.bar-seg button { font-size: 13px; padding: 9px 12px; }
+.bar-div { width: 1px; align-self: stretch; margin: 6px 4px; background: var(--line); }
 
 .btn {
   min-width: 46px; height: 38px; padding: 0 12px;
@@ -323,8 +429,7 @@ kbd {
 
 /* 橫向矮螢幕：讓時間吃高度而不是寬度 */
 @media (orientation: landscape) and (max-height: 500px) {
-  .time { --t: calc(clamp(44px, 19vh, 200px) * var(--scale, 1) * var(--fit, 1)); }
-  .time.no-ms { --t: calc(clamp(52px, 26vh, 260px) * var(--scale, 1) * var(--fit, 1)); }
+  .time { --base: var(--base-land, clamp(44px, 19vh, 200px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

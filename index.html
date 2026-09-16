@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Millis — 沉浸式時鐘</title>
-<meta name="description" content="全螢幕沉浸式毫秒時鐘">
+<meta name="description" content="全螢幕沉浸式毫秒時鐘，內建秒錶與倒數計時">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -17,22 +17,63 @@
 </head>
 <body>
   <main id="stage" class="stage">
-    <div class="clock">
+    <div class="clock" id="clock">
       <div class="date" id="date">—</div>
+
       <div class="time" id="time">
         <span class="hms">
           <span id="p-h">00</span><span class="sep" id="sep1">:</span><span id="p-m">00</span><span class="sep" id="sep2">:</span><span id="p-s">00</span>
         </span><span class="ms" id="ms">.000</span>
       </div>
+
       <div class="meta">
         <span class="ampm" id="ampm"></span>
         <span class="tz" id="tz"></span>
+        <span class="status" id="status"></span>
+      </div>
+
+      <!-- 倒數：進度條 -->
+      <div class="progress" id="progress" hidden><i id="progress-fill"></i></div>
+
+      <!-- 倒數：還沒設定時間時的快速選項 -->
+      <div class="presets" id="presets" hidden>
+        <button data-sec="60">1 分</button>
+        <button data-sec="180">3 分</button>
+        <button data-sec="300">5 分</button>
+        <button data-sec="600">10 分</button>
+        <button data-sec="900">15 分</button>
+        <button data-sec="1500">25 分</button>
+        <button data-sec="2700">45 分</button>
+        <button data-sec="3600">60 分</button>
+        <span class="custom">
+          <span class="custom-label">自訂</span>
+          <input type="number" id="c-h" min="0" max="99" placeholder="時" aria-label="小時">
+          <input type="number" id="c-m" min="0" max="59" placeholder="分" aria-label="分鐘">
+          <input type="number" id="c-s" min="0" max="59" placeholder="秒" aria-label="秒數">
+          <button class="go" id="c-set">設定</button>
+        </span>
+      </div>
+
+      <!-- 秒錶：計圈 -->
+      <ol class="laps" id="laps" hidden></ol>
+
+      <!-- 秒錶／倒數：操作按鈕（這排不會自動隱藏） -->
+      <div class="actions" id="actions" hidden>
+        <button class="act primary" id="a-primary">開始</button>
+        <button class="act" id="a-second">計圈</button>
+        <button class="act" id="a-reset">重設</button>
       </div>
     </div>
 
     <p class="hint" id="hint">移動滑鼠或點一下畫面，控制列會出現</p>
 
     <nav class="bar" id="bar" aria-label="控制列">
+      <div class="seg bar-seg" data-seg="view">
+        <button data-value="clock">時鐘</button>
+        <button data-value="stopwatch">秒錶</button>
+        <button data-value="timer">倒數</button>
+      </div>
+      <span class="bar-div"></span>
       <button class="btn" id="btn-fullscreen" title="全螢幕 (F)" aria-label="全螢幕">⛶</button>
       <button class="btn" id="btn-lock" title="防止螢幕休眠 (K)" aria-label="防止螢幕休眠">☾</button>
       <button class="btn" id="btn-settings" title="設定 (,)" aria-label="設定">⚙</button>
@@ -72,6 +113,17 @@
           <input type="checkbox" class="sw" id="t-date" data-toggle="showDate"></div>
         <div class="row"><label for="t-tzname">顯示時區名稱</label>
           <input type="checkbox" class="sw" id="t-tzname" data-toggle="showTz"></div>
+      </section>
+
+      <section class="grp">
+        <h3>秒錶與倒數</h3>
+        <div class="row"><label for="t-beep">倒數結束時發出提示音</label>
+          <input type="checkbox" class="sw" id="t-beep" data-toggle="beep"></div>
+        <div class="row"><label for="t-vib">倒數結束時震動</label>
+          <input type="checkbox" class="sw" id="t-vib" data-toggle="vibrate"></div>
+        <div class="row"><label for="t-laps">秒錶顯示計圈列表</label>
+          <input type="checkbox" class="sw" id="t-laps" data-toggle="showLaps"></div>
+        <p class="note">秒錶與倒數用的是單調時鐘（monotonic clock），就算系統時間被調整也不會跳掉；關掉分頁再回來也會接著算。</p>
       </section>
 
       <section class="grp">
@@ -159,8 +211,10 @@
       <section class="grp">
         <h3>快捷鍵</h3>
         <p class="note">
-          <kbd>F</kbd> 全螢幕 ・ <kbd>H</kbd> 12/24 小時 ・ <kbd>M</kbd> 毫秒 ・ <kbd>S</kbd> 秒
-          ・ <kbd>C</kbd> 換色調 ・ <kbd>D</kbd> 深淺 ・ <kbd>K</kbd> 不休眠 ・ <kbd>,</kbd> 設定 ・ <kbd>Esc</kbd> 關閉
+          <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 切換時鐘／秒錶／倒數<br>
+          <kbd>空白鍵</kbd> 開始或暫停 ・ <kbd>L</kbd> 計圈 ・ <kbd>R</kbd> 重設<br>
+          <kbd>F</kbd> 全螢幕 ・ <kbd>H</kbd> 12/24 小時 ・ <kbd>M</kbd> 毫秒 ・ <kbd>S</kbd> 秒<br>
+          <kbd>C</kbd> 換色調 ・ <kbd>D</kbd> 深淺 ・ <kbd>K</kbd> 不休眠 ・ <kbd>,</kbd> 設定 ・ <kbd>Esc</kbd> 關閉
         </p>
         <button class="reset" id="btn-reset">恢復預設值</button>
       </section>
