@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Millis — 沉浸式時鐘</title>
+<meta name="description" content="全螢幕沉浸式毫秒時鐘">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Millis">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="stage" class="stage">
+    <div class="clock">
+      <div class="date" id="date">—</div>
+      <div class="time" id="time">
+        <span class="hms">
+          <span id="p-h">00</span><span class="sep" id="sep1">:</span><span id="p-m">00</span><span class="sep" id="sep2">:</span><span id="p-s">00</span>
+        </span><span class="ms" id="ms">.000</span>
+      </div>
+      <div class="meta">
+        <span class="ampm" id="ampm"></span>
+        <span class="tz" id="tz"></span>
+      </div>
+    </div>
+
+    <p class="hint" id="hint">移動滑鼠或點一下畫面，控制列會出現</p>
+
+    <nav class="bar" id="bar" aria-label="控制列">
+      <button class="btn" id="btn-fullscreen" title="全螢幕 (F)" aria-label="全螢幕">⛶</button>
+      <button class="btn" id="btn-lock" title="防止螢幕休眠 (K)" aria-label="防止螢幕休眠">☾</button>
+      <button class="btn" id="btn-settings" title="設定 (,)" aria-label="設定">⚙</button>
+    </nav>
+  </main>
+
+  <!-- ---------- 設定頁 ---------- -->
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="sheet" id="sheet" hidden aria-label="設定" role="dialog" aria-modal="true">
+    <header class="sheet-hd">
+      <h2>設定</h2>
+      <button class="x" id="btn-close" aria-label="關閉">✕</button>
+    </header>
+
+    <div class="sheet-body">
+      <section class="grp">
+        <h3>時間</h3>
+
+        <div class="row">
+          <label>時制</label>
+          <div class="seg" data-seg="hour12">
+            <button data-value="false">24 小時</button>
+            <button data-value="true">12 小時</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="sel-tz">時區</label>
+          <select id="sel-tz" data-select="tz"></select>
+        </div>
+
+        <div class="row"><label for="t-sec">顯示秒</label>
+          <input type="checkbox" class="sw" id="t-sec" data-toggle="showSeconds"></div>
+        <div class="row"><label for="t-ms">顯示毫秒</label>
+          <input type="checkbox" class="sw" id="t-ms" data-toggle="showMs"></div>
+        <div class="row"><label for="t-date">顯示日期</label>
+          <input type="checkbox" class="sw" id="t-date" data-toggle="showDate"></div>
+        <div class="row"><label for="t-tzname">顯示時區名稱</label>
+          <input type="checkbox" class="sw" id="t-tzname" data-toggle="showTz"></div>
+      </section>
+
+      <section class="grp">
+        <h3>外觀</h3>
+
+        <div class="row">
+          <label>深淺模式</label>
+          <div class="seg" data-seg="mode">
+            <button data-value="auto">跟隨系統</button>
+            <button data-value="light">淺色</button>
+            <button data-value="dark">深色</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>色調</label>
+          <div class="swatches" data-seg="theme">
+            <button data-value="neutral" title="中性"></button>
+            <button data-value="amber"   title="琥珀"></button>
+            <button data-value="mint"    title="薄荷"></button>
+            <button data-value="ice"     title="冰藍"></button>
+            <button data-value="rose"    title="玫瑰"></button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>字型</label>
+          <div class="seg" data-seg="font">
+            <button data-value="sans" style="font-family:ui-sans-serif,system-ui,sans-serif">黑體</button>
+            <button data-value="serif" style="font-family:ui-serif,Georgia,serif">襯線</button>
+            <button data-value="mono" style="font-family:ui-monospace,Menlo,monospace">等寬</button>
+            <button data-value="rounded" style="font-family:ui-rounded,system-ui,sans-serif">圓體</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>字重</label>
+          <div class="seg" data-seg="weight">
+            <button data-value="100" style="font-weight:100">極細</button>
+            <button data-value="300" style="font-weight:300">細</button>
+            <button data-value="400" style="font-weight:400">標準</button>
+            <button data-value="700" style="font-weight:700">粗</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="r-scale">字體大小 <output id="out-scale">100%</output></label>
+          <input type="range" id="r-scale" data-range="scale" min="40" max="160" step="5">
+        </div>
+      </section>
+
+      <section class="grp">
+        <h3>效果</h3>
+
+        <div class="row">
+          <label>發光</label>
+          <div class="seg" data-seg="glow">
+            <button data-value="off">無</button>
+            <button data-value="soft">柔和</button>
+            <button data-value="strong">強烈</button>
+          </div>
+        </div>
+
+        <div class="row"><label for="t-blink">冒號閃爍</label>
+          <input type="checkbox" class="sw" id="t-blink" data-toggle="blink"></div>
+        <div class="row"><label for="t-fade">切換時淡入</label>
+          <input type="checkbox" class="sw" id="t-fade" data-toggle="fade"></div>
+
+        <div class="row">
+          <label for="sel-hide">控制列自動隱藏</label>
+          <select id="sel-hide" data-select="autoHide">
+            <option value="2">2 秒</option>
+            <option value="3">3 秒</option>
+            <option value="5">5 秒</option>
+            <option value="10">10 秒</option>
+            <option value="0">不隱藏</option>
+          </select>
+        </div>
+
+        <div class="row"><label for="t-wake">螢幕不休眠</label>
+          <input type="checkbox" class="sw" id="t-wake" data-toggle="wake"></div>
+        <p class="note" id="wake-note" hidden>這個瀏覽器不支援螢幕不休眠。</p>
+      </section>
+
+      <section class="grp">
+        <h3>快捷鍵</h3>
+        <p class="note">
+          <kbd>F</kbd> 全螢幕 ・ <kbd>H</kbd> 12/24 小時 ・ <kbd>M</kbd> 毫秒 ・ <kbd>S</kbd> 秒
+          ・ <kbd>C</kbd> 換色調 ・ <kbd>D</kbd> 深淺 ・ <kbd>K</kbd> 不休眠 ・ <kbd>,</kbd> 設定 ・ <kbd>Esc</kbd> 關閉
+        </p>
+        <button class="reset" id="btn-reset">恢復預設值</button>
+      </section>
+    </div>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
