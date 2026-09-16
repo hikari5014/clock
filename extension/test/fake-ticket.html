@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>測試用假售票頁</title>
+<style>
+  body { font: 15px/1.7 system-ui, "Noto Sans TC", sans-serif; max-width: 640px;
+         margin: 40px auto; padding: 0 20px; background: #faf9f7; color: #1c1c1e; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #777; font-size: 13px; margin-bottom: 28px; }
+  #zone { border: 2px dashed #c9c5bd; border-radius: 12px; padding: 22px; background: #fff; }
+  .seat { display: flex; justify-content: space-between; align-items: center;
+          padding: 9px 0; border-bottom: 1px solid #eee; }
+  .seat:last-child { border-bottom: 0; }
+  .price { font-variant-numeric: tabular-nums; color: #666; font-size: 13px; }
+  button.buy { border: 0; border-radius: 7px; padding: 6px 16px; font: 600 13px inherit; cursor: pointer;
+               background: #e4483c; color: #fff; }
+  button.buy:disabled { background: #ddd; color: #999; cursor: not-allowed; }
+  .ops { margin-top: 26px; padding-top: 18px; border-top: 1px solid #e5e2dc; }
+  .ops button { border: 1px solid #ccc; background: #fff; border-radius: 7px;
+                padding: 7px 14px; font: 13px inherit; cursor: pointer; margin-right: 8px; }
+  .ops label { font-size: 13px; color: #666; }
+  #log { margin-top: 14px; font: 12px/1.6 ui-monospace, Menlo, monospace; color: #888;
+         white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<h1>測試場次：搶票雷達練習場</h1>
+<p class="sub">這是假的。用來驗證擴充功能會不會在票釋出的瞬間叫你。</p>
+
+<div id="zone">
+  <div class="seat"><span>搖滾區 A</span><span class="price">NT$ 3,800</span><button class="buy" disabled>售完</button></div>
+  <div class="seat"><span>看台 1 樓</span><span class="price">NT$ 2,800</span><button class="buy" disabled>售完</button></div>
+  <div class="seat"><span>看台 2 樓</span><span class="price">NT$ 1,800</span><button class="buy" disabled>售完</button></div>
+</div>
+
+<div class="ops">
+  <button id="drop">10 秒後掉一張回流票</button>
+  <button id="reset">全部變回售完</button>
+  <label><input type="checkbox" id="auto"> 每 20~40 秒隨機掉票</label>
+  <div id="log">等待中…</div>
+</div>
+
+<script>
+  const zone = document.getElementById('zone');
+  const log = (t) => {
+    const d = new Date();
+    document.getElementById('log').textContent =
+      `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}  ${t}`;
+  };
+
+  function release() {
+    const sold = [...zone.querySelectorAll('button.buy')].filter((b) => b.disabled);
+    if (!sold.length) return log('已經沒有售完的位子了');
+    const b = sold[Math.floor(Math.random() * sold.length)];
+    b.disabled = false;
+    b.textContent = '立即購買';
+    log(`釋出：${b.closest('.seat').firstElementChild.textContent}`);
+  }
+
+  function resetAll() {
+    for (const b of zone.querySelectorAll('button.buy')) { b.disabled = true; b.textContent = '售完'; }
+    log('全部設回售完');
+  }
+
+  document.getElementById('drop').addEventListener('click', () => {
+    log('10 秒後掉票…把分頁切走，看擴充功能叫不叫得醒你');
+    setTimeout(release, 10000);
+  });
+  document.getElementById('reset').addEventListener('click', resetAll);
+
+  let autoTimer = null;
+  document.getElementById('auto').addEventListener('change', (e) => {
+    clearTimeout(autoTimer);
+    if (!e.target.checked) return log('自動掉票已關閉');
+    const tick = () => {
+      release();
+      autoTimer = setTimeout(tick, 20000 + Math.random() * 20000);
+    };
+    log('自動掉票已開啟');
+    autoTimer = setTimeout(tick, 20000 + Math.random() * 20000);
+  });
+
+  document.querySelector('#zone').addEventListener('click', (e) => {
+    if (e.target.matches('button.buy:not(:disabled)')) {
+      e.target.textContent = '已選取';
+      log('（假裝）進入購票流程。真實情況下這一下是你自己按的。');
+    }
+  });
+</script>
+</body>
+</html>
