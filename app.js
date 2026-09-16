@@ -20,6 +20,9 @@
     hint: $('#hint'), bar: $('#bar'),
     progress: $('#progress'), fill: $('#progress-fill'),
     phase: $('#phase'), dots: $('#dots'),
+    sign: $('#sign'), d: $('#p-d'),
+    targets: $('#targets'), tlist: $('#tlist'), tform: $('#tform'),
+    tName: $('#t-name'), tAt: $('#t-at'), tempty: $('#tempty'),
     presets: $('#presets'), cSet: $('#c-set'), cH: $('#c-h'), cM: $('#c-m'), cS: $('#c-s'),
     laps: $('#laps'),
     actions: $('#actions'), aPrimary: $('#a-primary'), aSecond: $('#a-second'), aReset: $('#a-reset'),
@@ -37,6 +40,8 @@
     beep: true, vibrate: true, showLaps: true,
     // 番茄鐘（單位：分鐘）
     pomoFocus: 25, pomoShort: 5, pomoLong: 15, pomoRounds: 4, pomoAuto: true,
+    // 目標時間
+    targets: [], focusId: null,
     // 外觀
     mode: 'auto', theme: 'neutral', font: 'sans', weight: 300, scale: 100,
     // 效果
@@ -47,8 +52,8 @@
   let state = loadState();
 
   function loadState() {
-    try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
-    catch { return { ...DEFAULTS }; }
+    try { return { ...DEFAULTS, targets: [], ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
+    catch { return { ...DEFAULTS, targets: [] }; }
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* 無痕模式就算了 */ }
@@ -307,6 +312,72 @@
     }
   }
 
+  /* ===================== 目標時間 ===================== */
+  const targets = () => {
+    if (!Array.isArray(state.targets)) state.targets = [];
+    return state.targets;
+  };
+
+  // 還沒到的排前面（近的優先），已過的排後面（剛過的優先）
+  function sortedTargets() {
+    const now = Date.now();
+    return targets().slice().sort((a, b) => {
+      const pa = a.at < now, pb = b.at < now;
+      if (pa !== pb) return pa ? 1 : -1;
+      return pa ? b.at - a.at : a.at - b.at;
+    });
+  }
+  function focusedTarget() {
+    const list = sortedTargets();
+    if (!list.length) return null;
+    return list.find((t) => t.id === state.focusId) || list[0];
+  }
+
+  // 剩多久 → 0（還很久）~ 1（迫在眉睫）。用對數插值，才不會前六天都沒感覺
+  const URGENCY = [[604800, 0], [86400, .35], [3600, .7], [60, .92], [1, 1]];
+  function urgency(sec) {
+    if (sec >= URGENCY[0][0]) return 0;
+    if (sec <= 1) return 1;
+    for (let i = 0; i < URGENCY.length - 1; i++) {
+      const [a, ua] = URGENCY[i], [c, uc] = URGENCY[i + 1];
+      if (sec <= a && sec >= c) {
+        const t = (Math.log10(a) - Math.log10(sec)) / (Math.log10(a) - Math.log10(c));
+        return ua + (uc - ua) * t;
+      }
+    }
+    return 1;
+  }
+  // u = null 清除、-1 已過（綠）、0~1 逼近程度（越大越紅）
+  const mixUrgent = (pct, base) => `color-mix(in srgb, var(--urgent) ${pct}%, ${base})`;
+  function setTargetColor(u) {
+    const key = u === null ? '' : u < 0 ? 'passed' : String(Math.round(u * 100));
+    if (last.color === key) return;
+    last.color = key;
+    if (u === null) {
+      el.time.style.color = '';
+      el.time.style.removeProperty('--glow-color');
+      return;
+    }
+    const c = u < 0 ? 'var(--passed)' : mixUrgent(key, 'var(--fg)');
+    el.time.style.color = c;
+    el.time.style.setProperty('--glow-color', c);
+  }
+
+  function addTarget(name, at) {
+    targets().push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name, at,
+      notified: at <= Date.now(),   // 設定一個已過去的時間就不用再提示
+    });
+    state.focusId = null;
+    apply(true);
+  }
+  function removeTarget(id) {
+    state.targets = targets().filter((t) => t.id !== id);
+    if (state.focusId === id) state.focusId = null;
+    apply(true);
+  }
+
   /* ===================== 畫面輸出 ===================== */
   const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
   const pad = (n, w = 2) => String(n).padStart(w, '0');
@@ -316,8 +387,12 @@
     if (last[key] !== val) { node.textContent = val; last[key] = val; }
   }
 
-  // 統一的數字輸出：hh 傳 null 代表不顯示小時
-  function setDigits(hh, mm, ss, ms) {
+  // 統一的數字輸出：dd / hh 傳 null 代表不顯示天 / 小時
+  function setDigits(dd, hh, mm, ss, ms) {
+    const showD = dd !== null;
+    if (last.showD !== showD) { el.d.hidden = !showD; last.showD = showD; }
+    if (showD) put(el.d, 'd', dd);
+
     const showH = hh !== null;
     if (last.showH !== showH) {
       el.h.hidden = el.sep1.hidden = !showH;
@@ -341,6 +416,27 @@
     };
   }
 
+  // 目標用：一定顯示小時，超過一天才多一個「天」
+  function breakdownDays(ms) {
+    const t = Math.floor(ms);
+    const d = Math.floor(t / 86400000);
+    return {
+      d: d ? d + '天' : null,
+      h: pad(Math.floor(t / 3600000) % 24),
+      m: pad(Math.floor(t / 60000) % 60),
+      s: pad(Math.floor(t / 1000) % 60),
+      ms: '.' + pad(t % 1000, 3),
+    };
+  }
+  const fmtAt = (at) => {
+    const d = new Date(at);
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const shortDur = (ms) => {
+    const b = breakdownDays(ms);
+    return (b.d ? b.d + ' ' : '') + b.h + ':' + b.m + ':' + b.s;
+  };
+
   function renderClock() {
     const nowMs = Date.now();
     refreshOffset(nowMs, false);
@@ -350,7 +446,7 @@
     let ampm = '';
     if (state.hour12) { ampm = hh < 12 ? 'AM' : 'PM'; hh = hh % 12 || 12; }
 
-    setDigits(pad(hh), pad(wall.getUTCMinutes()), pad(wall.getUTCSeconds()),
+    setDigits(null, pad(hh), pad(wall.getUTCMinutes()), pad(wall.getUTCSeconds()),
       '.' + pad(wall.getUTCMilliseconds(), 3));
     put(el.ampm, 'ampm', ampm);
 
@@ -370,7 +466,7 @@
 
   function renderStopwatch() {
     const b = breakdown(swElapsed());
-    setDigits(b.h, b.m, b.s, b.ms);
+    setDigits(null, b.h, b.m, b.s, b.ms);
   }
 
   function renderTimer() {
@@ -380,7 +476,7 @@
       fireAlarm(); afterRun();
     }
     const b = breakdown(left);
-    setDigits(b.h, b.m, b.s, b.ms);
+    setDigits(null, b.h, b.m, b.s, b.ms);
 
     const ratio = cd.total > 0 ? left / cd.total : 0;
     const w = ratio.toFixed(4);
@@ -396,17 +492,42 @@
       return;
     }
     const b = breakdown(left);
-    setDigits(b.h, b.m, b.s, b.ms);
+    setDigits(null, b.h, b.m, b.s, b.ms);
 
     const total = pmTotal();
     const w = (total > 0 ? left / total : 0).toFixed(4);
     if (last.fill !== w) { el.fill.style.transform = `scaleX(${w})`; last.fill = w; }
   }
 
+  function renderTarget() {
+    const t = focusedTarget();
+    if (!t) {
+      setDigits(null, '00', '00', '00', '.000');
+      setTargetColor(null);
+      if (last.past !== false) { el.sign.hidden = true; last.past = false; }
+      return;
+    }
+    const diff = t.at - Date.now();
+    const past = diff < 0;
+    const b = breakdownDays(Math.abs(diff));
+    setDigits(b.d, b.h, b.m, b.s, b.ms);
+
+    if (past !== last.past) { el.sign.hidden = !past; last.past = past; }
+    setTargetColor(past ? -1 : urgency(diff / 1000));
+
+    if (past && !t.notified) {       // 剛剛跨過去的那一瞬間
+      t.notified = true;
+      fireAlarm();
+      save();
+      tSig = '';                     // 讓清單重畫、排序跟著換
+    }
+  }
+
   function tick() {
     if (state.view === 'stopwatch') renderStopwatch();
     else if (state.view === 'timer') renderTimer();
     else if (state.view === 'pomo') renderPomo();
+    else if (state.view === 'target') renderTarget();
     else renderClock();
     requestAnimationFrame(tick);
   }
@@ -432,6 +553,38 @@
       return li;
     }).reverse();                       // 最新的放最上面
     el.laps.replaceChildren(...rows);
+  }
+
+  let tSig = '';
+  function drawTargets() {
+    const list = sortedTargets();
+    const cur = focusedTarget();
+    const sig = list.map((t) => `${t.id}:${t.at}:${t.name}`).join('|') + '#' + (cur ? cur.id : '');
+    if (sig !== tSig) {
+      tSig = sig;
+      el.tlist.replaceChildren(...list.map((t) => {
+        const li = document.createElement('li');
+        li.dataset.id = t.id;
+        if (cur && t.id === cur.id) li.className = 'on';
+        li.innerHTML = '<span class="tname"></span><span class="tat"></span>'
+          + '<span class="tleft"></span><button class="tdel" type="button" aria-label="刪除">✕</button>';
+        li.querySelector('.tname').textContent = t.name || '（未命名）';
+        li.querySelector('.tat').textContent = fmtAt(t.at);
+        return li;
+      }));
+    }
+    // 剩餘時間與顏色每次都更新
+    el.tlist.querySelectorAll('li').forEach((li) => {
+      const t = targets().find((x) => x.id === li.dataset.id);
+      if (!t) return;
+      const diff = t.at - Date.now();
+      const span = li.querySelector('.tleft');
+      span.textContent = (diff < 0 ? '+' : '') + shortDur(Math.abs(diff));
+      span.style.color = diff < 0
+        ? 'var(--passed)'
+        : mixUrgent(Math.round(urgency(diff / 1000) * 100), 'var(--dim)');
+    });
+    el.tempty.hidden = list.length > 0;
   }
 
   let dotsDrawn = '';
@@ -470,6 +623,7 @@
     for (const k of Object.keys(last)) last[k] = null;
     lapsDrawn = -1;
     dotsDrawn = '';
+    tSig = '';
     refreshOffset(Date.now(), true);
 
     syncViewUI();
@@ -501,7 +655,15 @@
     el.sep2.hidden = el.s.hidden;
     el.ms.hidden = !state.showMs;
 
-    el.actions.hidden = isClock;
+    const isTarget = v === 'target';
+    el.actions.hidden = isClock || isTarget;
+    el.targets.hidden = !isTarget;
+    if (!isTarget) {
+      setTargetColor(null);
+      if (last.past !== false) { el.sign.hidden = true; last.past = false; }
+    } else {
+      drawTargets();
+    }
     el.laps.hidden = !(v === 'stopwatch' && state.showLaps && sw.laps.length);
     el.progress.hidden = !(v === 'pomo' || (v === 'timer' && cd.total > 0));
     el.presets.hidden = !(v === 'timer' && !cd.running);
@@ -540,6 +702,9 @@
       el.phase.classList.toggle('focus', pm.phase === 'focus');
       if (!pm.running && pm.started) status = '暫停中';
       drawDots();
+    } else if (isTarget) {
+      const t = focusedTarget();
+      status = t ? (t.name || fmtAt(t.at)) : '';
     }
     if (v !== 'timer') el.aPrimary.disabled = false;
     put(el.status, 'status', status);
@@ -553,9 +718,17 @@
       btn.classList.toggle('on', v === 'timer' && +btn.dataset.sec === sec));
 
     // 字級檔位：算目前實際會顯示幾個字元
-    const elapsed = v === 'stopwatch' ? swElapsed() : v === 'pomo' ? pmRemain() : cdRemain();
-    const showH = v === 'clock' ? true : breakdown(elapsed).h !== null;
-    const chars = (showH ? 3 : 0) + 2 + (el.s.hidden ? 0 : 3) + (state.showMs ? 4 : 0);
+    let chars;
+    if (isTarget) {
+      const t = focusedTarget();
+      const diff = t ? t.at - Date.now() : 0;
+      const days = Math.floor(Math.abs(diff) / 86400000);
+      chars = 8 + (days ? String(days).length + 2 : 0) + (diff < 0 ? 1 : 0) + (state.showMs ? 4 : 0);
+    } else {
+      const elapsed = v === 'stopwatch' ? swElapsed() : v === 'pomo' ? pmRemain() : cdRemain();
+      const showH = v === 'clock' ? true : breakdown(elapsed).h !== null;
+      chars = (showH ? 3 : 0) + 2 + (el.s.hidden ? 0 : 3) + (state.showMs ? 4 : 0);
+    }
     const tier = TIERS.find((t) => chars >= t.min);
     if (last.tier !== tier.base) {
       last.tier = tier.base;
@@ -689,6 +862,7 @@
     '2': () => setView('stopwatch'),
     '3': () => setView('timer'),
     '4': () => setView('pomo'),
+    '5': () => setView('target'),
     ' ': primary,
     'l': second,
     'n': second,
@@ -719,13 +893,29 @@
   el.bClose.addEventListener('click', closeSheet);
   el.scrim.addEventListener('click', closeSheet);
   el.bLock.addEventListener('click', () => { state.wake = !state.wake; apply(false); });
-  el.bReset.addEventListener('click', () => { state = { ...DEFAULTS }; apply(true); });
+  el.bReset.addEventListener('click', () => { state = { ...DEFAULTS, targets: [] }; apply(true); });
   el.stage.addEventListener('dblclick', toggleFullscreen);
   window.addEventListener('pointerdown', () => el.hint.classList.add('gone'), { once: true });
 
   el.aPrimary.addEventListener('click', primary);
   el.aSecond.addEventListener('click', second);
   el.aReset.addEventListener('click', doReset);
+
+  // 新增目標
+  el.tform.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const at = new Date(el.tAt.value).getTime();
+    if (!Number.isFinite(at)) return;
+    addTarget(el.tName.value.trim(), at);
+    el.tName.value = '';
+  });
+  // 點一列切換焦點，點 ✕ 刪除
+  el.tlist.addEventListener('click', (ev) => {
+    const li = ev.target.closest('li[data-id]');
+    if (!li) return;
+    if (ev.target.closest('.tdel')) removeTarget(li.dataset.id);
+    else { state.focusId = li.dataset.id; apply(true); }
+  });
 
   el.presets.querySelectorAll('button[data-sec]').forEach((b) =>
     b.addEventListener('click', () => cdSet(+b.dataset.sec)));
@@ -743,6 +933,14 @@
     if (document.visibilityState === 'hidden') saveRuntime();
     else syncWakeLock();                 // 瀏覽器會自動釋放 Wake Lock，回來要重拿
   });
+
+  // 新增表單預設帶明天早上九點，省得每次從頭選
+  (() => {
+    const d = new Date(Date.now() + 86400000);
+    d.setHours(9, 0, 0, 0);
+    const p2 = (n) => String(n).padStart(2, '0');
+    el.tAt.value = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T09:00`;
+  })();
 
   buildTzList();
   loadRuntime();

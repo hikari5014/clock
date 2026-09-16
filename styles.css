@@ -36,6 +36,10 @@
 :root[data-resolved="light"][data-theme="ice"]   { --bg: #eef5fd; --fg: #0b3f6b; --glow-color: rgba(11, 63, 107, .14); }
 :root[data-resolved="light"][data-theme="rose"]  { --bg: #fdeff4; --fg: #7a1338; --glow-color: rgba(122, 19, 56, .14); }
 
+/* 目標模式：逼近時轉紅、超過後轉綠 */
+:root { --urgent: #ff453a; --passed: #32d74b; }
+:root[data-resolved="light"] { --urgent: #d70015; --passed: #1a7f37; }
+
 /* 依透明度算出的次要色，跟著 --fg 自動變 */
 :root { --dim: color-mix(in srgb, var(--fg) 45%, transparent); }
 
@@ -105,12 +109,25 @@ html, body {
 }
 
 .hms { font-size: var(--t); }
+
+.days {
+  font-size: calc(var(--t) * 0.62);
+  margin-right: .18em;
+  white-space: nowrap;
+}
+.days[hidden] { display: none; }
+.sign {
+  font-size: calc(var(--t) * 0.62);
+  margin-right: .04em;
+}
+.sign[hidden] { display: none; }
 .sep { transition: opacity .12s linear; }
 .sep.off { opacity: .15; }
 
 .ms {
   font-size: calc(var(--t) * 0.42);
-  color: var(--dim);
+  /* 跟著 currentColor 走，目標模式轉紅轉綠時毫秒才會一起變 */
+  color: color-mix(in srgb, currentColor 55%, transparent);
   margin-left: .08em;
   font-weight: 300;
 }
@@ -203,6 +220,63 @@ html, body {
 .presets button.go { border-color: transparent; background: var(--chip-on); opacity: 1; }
 .presets input::-webkit-outer-spin-button,
 .presets input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ---------- 目標：清單與新增 ---------- */
+.targets {
+  width: min(94vw, 560px);
+  margin: clamp(16px, 3vh, 30px) auto 0;
+}
+.targets[hidden] { display: none; }
+
+.tlist { list-style: none; }
+.tlist:empty { display: none; }
+.tlist li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 10px;
+  font-size: clamp(12px, 1.5vw, 15px);
+  cursor: pointer;
+  transition: background-color .15s;
+}
+.tlist li:hover { background: var(--chip); }
+.tlist li.on { background: var(--chip); }
+.tlist li.on .tname::before { content: '▸ '; }
+.tlist .tname {
+  flex: 1 1 auto; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tlist .tat { color: var(--dim); font-variant-numeric: tabular-nums; }
+.tlist .tleft {
+  font-variant-numeric: tabular-nums;
+  min-width: 8.5em; text-align: right;
+}
+.tlist .tdel {
+  width: 26px; height: 26px; flex: 0 0 auto;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--dim);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.tlist .tdel:hover { background: var(--chip-on); color: var(--fg); }
+
+.tform {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; align-items: center;
+  margin-top: 12px;
+}
+.tform input {
+  border: 0; border-radius: 10px;
+  background: var(--chip); color: var(--fg);
+  font: inherit; font-size: 13px; padding: 10px 12px;
+}
+.tform input:focus { outline: 2px solid var(--chip-on); }
+.tform #t-name { width: 150px; }
+.tform .go {
+  border: 0; border-radius: 10px;
+  background: var(--chip-on); color: var(--fg);
+  font: inherit; font-size: 13px; padding: 10px 16px; cursor: pointer;
+}
+.tform .go:hover { opacity: .85; }
+.tempty { margin-top: 12px; text-align: center; }
+.tempty[hidden] { display: none; }
 
 /* ---------- 秒錶：計圈 ---------- */
 .laps {
@@ -451,10 +525,12 @@ kbd {
 
 /* 小螢幕：控制列要塞得下四個模式 */
 @media (max-width: 430px) {
-  .bar { gap: 2px; padding: 4px; }
-  .bar-seg button { padding: 9px 7px; font-size: 12px; }
+  .bar { gap: 1px; padding: 4px; }
+  .bar-seg button { padding: 9px 5px; font-size: 11px; }
   .bar-div { margin: 6px 2px; }
-  .btn { min-width: 38px; padding: 0 8px; font-size: 14px; }
+  .btn { min-width: 34px; padding: 0 6px; font-size: 14px; }
+  .tform #t-name { width: 100%; }
+  .tlist .tat { display: none; }
 }
 
 /* 橫向矮螢幕：讓時間吃高度而不是寬度 */
