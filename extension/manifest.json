@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Ticket Radar 搶票雷達",
+  "version": "0.1.0",
+  "description": "校時、毫秒倒數、盯哨提醒。只提醒不代按 —— 最後一下永遠是你自己按的。",
+  "permissions": ["storage", "alarms", "notifications", "offscreen", "scripting", "activeTab"],
+  "optional_host_permissions": ["*://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "搶票雷達",
+    "default_popup": "popup/popup.html",
+    "default_icon": { "192": "icons/icon-192.png", "512": "icons/icon-512.png" }
+  },
+  "icons": { "192": "icons/icon-192.png", "512": "icons/icon-512.png" }
+}

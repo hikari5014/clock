@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>搶票雷達</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+<header>
+  <h1>搶票雷達</h1>
+  <p class="sub">校時 · 倒數 · 盯哨。<strong>只提醒，不代按。</strong></p>
+</header>
+
+<div id="unsupported" class="card warn hidden">
+  這個分頁不是一般網頁（可能是設定頁或擴充功能頁），沒辦法在這裡用。
+</div>
+
+<main id="main" class="hidden">
+
+  <!-- 1. 授權 -->
+  <section class="card">
+    <div class="label">目前網站</div>
+    <div class="origin" id="origin">—</div>
+    <button id="grant" class="primary">在這個網站啟用</button>
+  </section>
+
+  <!-- 2. 校時 -->
+  <section class="card" id="sec-clock">
+    <div class="label">校時</div>
+    <div class="big" id="offset">尚未校時</div>
+    <div class="meta" id="offset-meta">跟售票站對一次時間，就知道你的電腦快了還是慢了幾毫秒。</div>
+    <button id="sync">跟這個網站對時</button>
+  </section>
+
+  <!-- 3. 開賣時間 -->
+  <section class="card" id="sec-target">
+    <div class="label">開賣時間</div>
+    <input type="text" id="t-label" placeholder="名稱（例如：五月天 台北場）" maxlength="40">
+    <input type="datetime-local" id="t-at" step="1">
+    <div class="btn-row">
+      <button id="t-set" class="primary">設定倒數</button>
+      <button id="t-clear">清除</button>
+    </div>
+    <div class="meta" id="t-now"></div>
+  </section>
+
+  <!-- 4. 盯哨 -->
+  <section class="card" id="sec-watch">
+    <div class="label">盯哨</div>
+
+    <button id="pick">選取要盯的區塊</button>
+    <div class="preview" id="preview">還沒選。按上面的按鈕，然後在頁面上點你要盯的那一塊（例如座位圖、張數、購買按鈕）。</div>
+
+    <label class="field">
+      <span>觸發條件</span>
+      <select id="mode">
+        <option value="appear">出現關鍵字時（例如「立即購買」）</option>
+        <option value="disappear">關鍵字消失時（例如「售完」）</option>
+        <option value="any">內容有任何變化就通知</option>
+      </select>
+    </label>
+
+    <label class="field" id="kw-field">
+      <span>關鍵字（逗號分隔）</span>
+      <input type="text" id="keywords" placeholder="立即購買, 選位, 可售">
+    </label>
+
+    <label class="check">
+      <input type="checkbox" id="rl-on">
+      <span>頁面不會自己更新時，定時重整</span>
+    </label>
+    <div class="field inline" id="rl-row">
+      <span>每</span>
+      <input type="number" id="rl-sec" min="5" max="120" step="1" value="10">
+      <span>秒（最低 5 秒，最多跑 30 分鐘就自動關）</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="start" class="primary">開始盯哨</button>
+      <button id="stop">停止</button>
+    </div>
+    <div class="meta" id="watch-state"></div>
+  </section>
+
+  <!-- 5. 提醒方式 -->
+  <section class="card">
+    <div class="label">有動靜的時候</div>
+    <label class="check"><input type="checkbox" id="s-sound" checked><span>播警報音</span></label>
+    <label class="check"><input type="checkbox" id="s-notify" checked><span>發系統通知</span></label>
+    <label class="check"><input type="checkbox" id="s-focus" checked><span>把分頁切到前景</span></label>
+  </section>
+
+  <section class="card rules">
+    <div class="label">這支工具不會做的事</div>
+    <ul>
+      <li>不自動點擊、不自動選位、不自動送出訂單</li>
+      <li>不碰驗證碼、不繞過排隊系統</li>
+      <li>不多開帳號、不代填付款資料</li>
+      <li>重整下限 5 秒寫死在程式裡，不開放調更低</li>
+    </ul>
+    <p>最後按下購買的，永遠是你自己。</p>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+<script src="popup.js"></script>
+</body>
+</html>
