@@ -11,6 +11,11 @@
 const HARD_MIN_RELOAD_SEC = 5;    // 自動重整的硬性下限，UI 不開放調更低
 const RELOAD_MAX_MINUTES  = 30;   // 自動重整最多跑這麼久，避免無人看管一直打人家伺服器
 const SYNC_SAMPLES        = 7;    // 校時取樣次數
+const BEAT_MS             = 60_000;   // 盯哨心跳的間隔
+const BEAT_GRACE_MS       = 3 * BEAT_MS;  // 心跳斷超過這麼久，就算是新的一段觀測
+const KEEP_DAYS           = 90;   // 紀錄保留天數
+const MAX_EVENTS          = 5000;
+const MAX_SESSIONS        = 2000;
 
 /* ---------- 儲存小工具 ---------- */
 const load = (k, d) => chrome.storage.local.get({ [k]: d }).then((o) => o[k]);
@@ -89,6 +94,54 @@ async function syncClock(origin) {
   clocks[origin] = result;
   await save('clocks', clocks);
   return result;
+}
+
+/* =====================================================================
+   回流票紀錄
+   ---------------------------------------------------------------------
+   只記兩種東西：
+
+     events   每次命中 { o 網域, t 時間, r 原因 }
+     sessions 每一段觀測 { o 網域, s 開始, e 最後一次心跳 }
+
+   為什麼要記觀測時段？因為「這個時段掉了 5 次」本身沒有意義——
+   你可能只在那個時段盯了 10 分鐘。有了觀測時長才能算出
+   「每小時掉幾次」，那才是能拿來決定「幾點該守著」的數字。
+
+   心跳每分鐘一次。斷超過三分鐘就當成新的一段，
+   所以分頁被關掉或當掉，也不會把整晚都算成有在盯。
+   ===================================================================== */
+const cutoff = () => Date.now() - KEEP_DAYS * 86400000;
+
+async function logEvent(origin, at, reason) {
+  const events = await load('events', []);
+  events.push({ o: origin, t: at, r: reason });
+  const kept = events.filter((e) => e.t >= cutoff()).slice(-MAX_EVENTS);
+  await save('events', kept);
+}
+
+async function logBeat(origin, at) {
+  const sessions = await load('sessions', []);
+  // 同一個網域最近的一段：還在心跳範圍內就延長，否則開新的一段
+  let last = null;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    if (sessions[i].o === origin) { last = sessions[i]; break; }
+  }
+  if (last && at - last.e <= BEAT_GRACE_MS && at >= last.e) last.e = at;
+  else sessions.push({ o: origin, s: at, e: at });
+
+  const kept = sessions.filter((x) => x.e >= cutoff()).slice(-MAX_SESSIONS);
+  await save('sessions', kept);
+}
+
+async function readStats() {
+  const [events, sessions, watches] = await Promise.all([
+    load('events', []), load('sessions', []), load('watches', {}),
+  ]);
+  const origins = [...new Set([
+    ...events.map((e) => e.o), ...sessions.map((x) => x.o), ...Object.keys(watches),
+  ])].sort();
+  return { events, sessions, origins, beatMs: BEAT_MS, keepDays: KEEP_DAYS };
 }
 
 /* ---------- 警報音（MV3 的 service worker 不能播聲音，要借 offscreen 文件） ---------- */
@@ -239,13 +292,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       /* 盯哨命中：聲音 + 通知 + 把分頁叫過來 */
       case 'hit': {
         const tabId = sender.tab?.id;
+        const origin = msg.origin || (sender.origin ?? '');
         await Promise.all([
+          logEvent(origin, msg.at || Date.now(), msg.message || ''),
           alarmSound('hit'),
           notify({ title: msg.title || '有動靜！', message: msg.message || '', tabId }),
           focusTab(tabId),
         ]);
         return { ok: true };
       }
+
+      /* 盯哨心跳：用來算「到底盯了多久」 */
+      case 'watch-beat':
+        await logBeat(msg.origin, msg.at || Date.now());
+        return { ok: true };
+
+      case 'get-stats':
+        return { ok: true, data: await readStats() };
+
+      case 'clear-stats':
+        await chrome.storage.local.set({ events: [], sessions: [] });
+        return { ok: true };
 
       /* 倒數歸零 */
       case 'open-now': {

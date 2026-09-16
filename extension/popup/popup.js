@@ -218,6 +218,32 @@ function renderWatch() {
     : '沒在跑。';
 }
 
+/* ---------- 統計 ---------- */
+function fmtDur(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${m} 分`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h} 小時` : `${Math.floor(h / 24)} 天`;
+}
+
+async function renderStatsSummary() {
+  const res = await send({ type: 'get-stats' });
+  if (!res?.ok) return;
+  const from = Date.now() - 30 * 86400000;
+  const events = res.data.events.filter((e) => e.t >= from);
+  if (!events.length) {
+    $('stats-sum').textContent = '還沒有紀錄。盯哨命中的每一次都會記下來。';
+    return;
+  }
+  const watched = res.data.sessions
+    .reduce((sum, s) => sum + Math.max(0, s.e - Math.max(s.s, from)), 0);
+  const mine = events.filter((e) => e.o === origin).length;
+  $('stats-sum').textContent =
+    `最近 30 天命中 ${events.length} 次` +
+    (mine && mine !== events.length ? `（這個網站 ${mine} 次）` : '') +
+    (watched ? ` · 盯了 ${fmtDur(watched)}` : '');
+}
+
 /* ---------- 提醒設定 ---------- */
 async function saveSettings() {
   settings = {
@@ -242,6 +268,7 @@ async function render() {
   renderClock();
   renderTarget();
   renderWatch();
+  renderStatsSummary();
 }
 
 /* ---------- 啟動 ---------- */
@@ -265,6 +292,10 @@ async function render() {
   $('pick').addEventListener('click', pick);
   $('start').addEventListener('click', startWatch);
   $('stop').addEventListener('click', stopWatch);
+  $('open-stats').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('stats/stats.html') });
+    window.close();
+  });
 
   for (const id of ['mode', 'keywords', 'rl-on', 'rl-sec']) {
     $(id).addEventListener('input', () => { formDirty = true; });

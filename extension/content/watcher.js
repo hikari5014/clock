@@ -18,13 +18,14 @@
   const ORIGIN = location.origin;
   const HARD_MIN_RELOAD_SEC = 5;
   const HIT_COOLDOWN_MS = 8000;
+  const BEAT_MS = 60000;                // 每分鐘回報一次「我還在盯」
   const SEP = String.fromCharCode(1);   // 快照裡用來隔開「文字」與「幾個按不下去的東西」
 
   let cfg = null;                       // 這個網域的盯哨設定
   let target = null;                    // { at, label }
   let clockInfo = { offset: 0 };        // 校時結果
 
-  let node = null, observer = null, rebindTimer = null, reloadTimer = null;
+  let node = null, observer = null, rebindTimer = null, reloadTimer = null, beatTimer = null;
   let lastHit = 0, hits = 0, openFired = false, openTimer = null;
 
   /* 校正後的「售票站現在幾點」。
@@ -223,6 +224,8 @@
     shoutTitle('有票了？');
     chrome.runtime.sendMessage({
       type: 'hit',
+      origin: ORIGIN,
+      at: serverNow(),          // 用校正後的站方時間，不同機器的紀錄才對得起來
       title: `有動靜：${cfg?.label || ORIGIN}`,
       message: reason,
     }).catch(() => {});
@@ -290,12 +293,19 @@
     renderWatchState();
   }
 
+  /* 心跳：讓背景知道「這段時間我真的有在盯」。
+     統計要拿它當分母——沒有觀測時長，「這個時段掉了 5 次」是沒有意義的。 */
+  function beat() {
+    chrome.runtime.sendMessage({ type: 'watch-beat', origin: ORIGIN, at: serverNow() }).catch(() => {});
+  }
+
   function stopWatching() {
     observer?.disconnect();
     observer = null;
     node = null;
     clearInterval(rebindTimer); rebindTimer = null;
     clearTimeout(reloadTimer); reloadTimer = null;
+    if (beatTimer) { clearInterval(beatTimer); beatTimer = null; beat(); }   // 收尾補一拍
     renderWatchState();
   }
 
@@ -304,6 +314,8 @@
     bind();
     // 售票網站常常整塊重畫，節點會被換掉，所以定期確認還抓不抓得到
     rebindTimer = setInterval(bind, 2000);
+    beat();
+    beatTimer = setInterval(beat, BEAT_MS);
     scheduleReload();
   }
 
@@ -477,6 +489,7 @@
   });
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) bind(); });
+  window.addEventListener('pagehide', () => { if (beatTimer) beat(); });
 
   refresh();
   requestAnimationFrame(loop);

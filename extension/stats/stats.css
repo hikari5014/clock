@@ -1,0 +1,150 @@
+/* 色票取自 dataviz 參考調色盤（單一資料序列＝藍）。
+   淺色與深色各自是選過的一組，不是把淺色自動反轉。 */
+:root {
+  color-scheme: light;
+  --plane:       #f9f9f7;   /* 頁面底 */
+  --surface:     #fcfcfb;   /* 卡片／圖表面 */
+  --ink:         #0b0b0b;
+  --ink-2:       #52514e;
+  --muted:       #898781;   /* 軸線文字 */
+  --grid:        #e1e0d9;
+  --baseline:    #c3c2b7;
+  --ring:        rgba(11,11,11,.10);
+  --series-1:    #2a78d6;
+  --critical:    #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --plane:    #0d0d0d;
+    --surface:  #1a1a19;
+    --ink:      #ffffff;
+    --ink-2:    #c3c2b7;
+    --muted:    #898781;
+    --grid:     #2c2c2a;
+    --baseline: #383835;
+    --ring:     rgba(255,255,255,.10);
+    --series-1: #3987e5;
+    --critical: #d03b3b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plane: #0d0d0d; --surface: #1a1a19; --ink: #fff; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --baseline: #383835;
+  --ring: rgba(255,255,255,.10); --series-1: #3987e5; --critical: #d03b3b;
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--plane);
+  color: var(--ink);
+  font: 14px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+  padding: 32px 24px 64px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- 頁首 ---------- */
+.page-head { display: flex; justify-content: space-between; align-items: flex-start;
+             gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+h1 { font-size: 21px; letter-spacing: .01em; }
+.sub { color: var(--ink-2); font-size: 13px; margin-top: 3px; max-width: 54ch; }
+.head-actions { display: flex; gap: 8px; }
+
+button {
+  border: 1px solid var(--ring); background: var(--surface); color: var(--ink);
+  border-radius: 8px; padding: 6px 12px; font: 500 13px inherit; cursor: pointer;
+}
+button:hover { border-color: var(--baseline); }
+button.danger:hover { border-color: var(--critical); color: var(--critical); }
+
+/* ---------- 篩選列：一排，放在圖表上方 ---------- */
+.filters {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 18px;
+  background: var(--surface); border: 1px solid var(--ring); border-radius: 10px;
+}
+.filters label { display: flex; align-items: center; gap: 7px;
+                 font-size: 12px; color: var(--ink-2); }
+select {
+  background: var(--plane); color: var(--ink);
+  border: 1px solid var(--ring); border-radius: 7px;
+  padding: 4px 8px; font: 13px inherit; max-width: 280px;
+}
+.filter-note { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+/* ---------- 空狀態 ---------- */
+.empty { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px;
+         padding: 28px; color: var(--ink-2); font-size: 13px; }
+.empty p + p { margin-top: 8px; }
+code { font: 12px ui-monospace, Menlo, Consolas, monospace;
+       background: var(--plane); padding: 1px 5px; border-radius: 4px; }
+
+/* ---------- 數字磚 ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+         gap: 10px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--ring);
+        border-radius: 12px; padding: 13px 15px; }
+.tile-k { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tile-v { font-size: 27px; font-weight: 650; line-height: 1.25; margin-top: 3px; }
+.tile-m { font-size: 12px; color: var(--ink-2); }
+
+/* ---------- 卡片 ---------- */
+.card { background: var(--surface); border: 1px solid var(--ring);
+        border-radius: 12px; padding: 18px 20px 14px; margin-bottom: 16px; }
+h2 { font-size: 15px; font-weight: 650; }
+.chart-sub { font-size: 12px; color: var(--ink-2); margin-top: 3px; max-width: 62ch; }
+
+/* ---------- 圖表 ---------- */
+.chart { margin-top: 18px; }
+.plot-row { display: flex; gap: 10px; }
+.yaxis { width: 34px; position: relative; flex: none; }
+.ytick { position: absolute; right: 0; transform: translateY(-50%);
+         font: 11px/1 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums;
+         color: var(--muted); }
+.plot { position: relative; flex: 1; height: 168px;
+        border-bottom: 1px solid var(--baseline); }
+.gridline { position: absolute; left: 0; right: 0; height: 1px; background: var(--grid); }
+.bars { position: absolute; inset: 0; display: flex; align-items: flex-end; }
+.col { flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center;
+       padding: 0 1px; cursor: default; }        /* 1px+1px = 相鄰柱之間 2px 的底色縫 */
+.col:hover .bar { filter: brightness(1.12); }
+.col.hot .bar { outline: 2px solid var(--surface); outline-offset: -2px; }
+.bar { width: 100%; max-width: 24px; background: var(--series-1);
+       border-radius: 4px 4px 0 0; min-height: 0; }
+.bar.none { background: var(--baseline); height: 2px !important; border-radius: 0; }
+.bar.thin { background: var(--muted); height: 3px !important; border-radius: 0; opacity: .5; }
+.xaxis { display: flex; margin: 7px 0 0 44px; }
+.xtick { flex: 1; text-align: center; font: 11px/1 ui-monospace, Menlo, monospace;
+         font-variant-numeric: tabular-nums; color: var(--muted);
+         white-space: nowrap; overflow: hidden; }
+.xtick.dim { opacity: 0; }
+.chart-legend { margin: 10px 0 0 44px; font-size: 11px; color: var(--muted); }
+
+/* ---------- 表 ---------- */
+.table-wrap { margin-top: 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--grid);
+         white-space: nowrap; }
+th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+     color: var(--muted); font-weight: 600; }
+td.num { font-variant-numeric: tabular-nums; }
+td.reason { white-space: normal; color: var(--ink-2); }
+tbody tr:last-child td { border-bottom: 0; }
+
+.foot-note { font-size: 12px; color: var(--muted); margin-top: 18px; max-width: 70ch; }
+
+/* ---------- 浮動說明 ---------- */
+.tip {
+  position: fixed; z-index: 10; pointer-events: none; opacity: 0;
+  background: var(--ink); color: var(--surface);
+  border-radius: 7px; padding: 7px 10px; font-size: 12px; line-height: 1.45;
+  max-width: 240px; transition: opacity .1s;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+.tip.on { opacity: 1; }
+.tip b { font-variant-numeric: tabular-nums; }

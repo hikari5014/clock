@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回流票統計 · 搶票雷達</title>
+<link rel="stylesheet" href="stats.css">
+</head>
+<body>
+
+<header class="page-head">
+  <div>
+    <h1>回流票統計</h1>
+    <p class="sub">你盯過的每一次動靜都記在這裡。用「每小時掉幾次」回答「幾點該守著」。</p>
+  </div>
+  <div class="head-actions">
+    <button id="export">匯出 CSV</button>
+    <button id="clear" class="danger">清除紀錄</button>
+  </div>
+</header>
+
+<div class="filters" role="group" aria-label="篩選">
+  <label>網站
+    <select id="f-origin"><option value="">全部</option></select>
+  </label>
+  <label>時間範圍
+    <select id="f-range">
+      <option value="7">最近 7 天</option>
+      <option value="30" selected>最近 30 天</option>
+      <option value="90">最近 90 天</option>
+      <option value="0">全部</option>
+    </select>
+  </label>
+  <span class="filter-note" id="coverage"></span>
+</div>
+
+<div id="empty" class="empty hidden">
+  <p><strong>還沒有紀錄。</strong></p>
+  <p>去售票頁開始盯哨，每次命中就會記一筆。想先看看長什麼樣子，可以用
+     <code>extension/test/fake-ticket.html</code> 裡的「每 20~40 秒隨機掉票」跑一陣子。</p>
+</div>
+
+<main id="board" class="hidden">
+
+  <section class="tiles">
+    <div class="tile">
+      <div class="tile-k">掉票次數</div>
+      <div class="tile-v" id="t-count">—</div>
+      <div class="tile-m" id="t-count-m"></div>
+    </div>
+    <div class="tile">
+      <div class="tile-k">實際盯了多久</div>
+      <div class="tile-v" id="t-watched">—</div>
+      <div class="tile-m" id="t-watched-m"></div>
+    </div>
+    <div class="tile">
+      <div class="tile-k">平均多久掉一次</div>
+      <div class="tile-v" id="t-gap">—</div>
+      <div class="tile-m" id="t-gap-m"></div>
+    </div>
+    <div class="tile">
+      <div class="tile-k">最值得守的時段</div>
+      <div class="tile-v" id="t-peak">—</div>
+      <div class="tile-m" id="t-peak-m"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>一天之中，哪個時段容易掉票</h2>
+    <p class="chart-sub">縱軸是每小時幾次，不是總共幾次——已經除以你在那個時段實際盯的時數。</p>
+    <div class="chart" id="chart-hour"></div>
+  </section>
+
+  <section class="card">
+    <h2>一週之中，哪一天容易掉票</h2>
+    <p class="chart-sub">一樣是每小時幾次。</p>
+    <div class="chart" id="chart-day"></div>
+  </section>
+
+  <section class="card">
+    <h2>最近的紀錄</h2>
+    <div class="table-wrap">
+      <table id="recent">
+        <thead><tr><th>時間</th><th>距上一次</th><th>網站</th><th>原因</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="chart-sub" id="recent-note"></p>
+  </section>
+
+  <p class="foot-note">
+    時間用的是校時之後的「站方時間」。觀測時長靠每分鐘一次的心跳累積，分頁關掉就停，
+    所以不會把你沒在盯的時間也算進去（誤差最多一分鐘）。紀錄只存在這台電腦，保留 90 天。
+  </p>
+
+</main>
+
+<div id="tip" class="tip" role="status" aria-live="polite"></div>
+<script src="stats.js"></script>
+</body>
+</html>
