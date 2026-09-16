@@ -1,4 +1,4 @@
 # 測試截圖等暫存檔
 *.png
-!icons/*.png
+!**/icons/*.png
 node_modules/
