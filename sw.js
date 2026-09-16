@@ -1,6 +1,6 @@
 /* 最小可用的離線快取：安裝時抓齊檔案，之後 cache-first。
  * 改版時把 CACHE 的版本號 +1 就會重新抓。 */
-const CACHE = 'millis-v3';
+const CACHE = 'millis-v4';
 const ASSETS = [
   './',
   './index.html',

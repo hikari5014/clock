@@ -19,6 +19,7 @@
   <main id="stage" class="stage">
     <div class="clock" id="clock">
       <div class="date" id="date">—</div>
+      <div class="phase" id="phase" hidden>專注</div>
 
       <div class="time" id="time">
         <span class="hms">
@@ -34,6 +35,9 @@
 
       <!-- 倒數：進度條 -->
       <div class="progress" id="progress" hidden><i id="progress-fill"></i></div>
+
+      <!-- 番茄鐘：這一輪循環的進度 -->
+      <div class="dots" id="dots" hidden></div>
 
       <!-- 倒數：還沒設定時間時的快速選項 -->
       <div class="presets" id="presets" hidden>
@@ -72,6 +76,7 @@
         <button data-value="clock">時鐘</button>
         <button data-value="stopwatch">秒錶</button>
         <button data-value="timer">倒數</button>
+        <button data-value="pomo">番茄</button>
       </div>
       <span class="bar-div"></span>
       <button class="btn" id="btn-fullscreen" title="全螢幕 (F)" aria-label="全螢幕">⛶</button>
@@ -124,6 +129,43 @@
         <div class="row"><label for="t-laps">秒錶顯示計圈列表</label>
           <input type="checkbox" class="sw" id="t-laps" data-toggle="showLaps"></div>
         <p class="note">秒錶與倒數用的是單調時鐘（monotonic clock），就算系統時間被調整也不會跳掉；關掉分頁再回來也會接著算。</p>
+      </section>
+
+      <section class="grp">
+        <h3>番茄鐘</h3>
+        <div class="row">
+          <label for="sel-focus">專注時間</label>
+          <select id="sel-focus" data-select="pomoFocus">
+            <option value="15">15 分</option><option value="20">20 分</option>
+            <option value="25">25 分</option><option value="30">30 分</option>
+            <option value="45">45 分</option><option value="50">50 分</option>
+            <option value="60">60 分</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="sel-short">短休息</label>
+          <select id="sel-short" data-select="pomoShort">
+            <option value="3">3 分</option><option value="5">5 分</option>
+            <option value="8">8 分</option><option value="10">10 分</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="sel-long">長休息</label>
+          <select id="sel-long" data-select="pomoLong">
+            <option value="10">10 分</option><option value="15">15 分</option>
+            <option value="20">20 分</option><option value="30">30 分</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="sel-rounds">幾輪專注後長休息</label>
+          <select id="sel-rounds" data-select="pomoRounds">
+            <option value="2">2 輪</option><option value="3">3 輪</option>
+            <option value="4">4 輪</option><option value="5">5 輪</option>
+            <option value="6">6 輪</option>
+          </select>
+        </div>
+        <div class="row"><label for="t-auto">自動接續下一段</label>
+          <input type="checkbox" class="sw" id="t-auto" data-toggle="pomoAuto"></div>
       </section>
 
       <section class="grp">
@@ -211,8 +253,8 @@
       <section class="grp">
         <h3>快捷鍵</h3>
         <p class="note">
-          <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 切換時鐘／秒錶／倒數<br>
-          <kbd>空白鍵</kbd> 開始或暫停 ・ <kbd>L</kbd> 計圈 ・ <kbd>R</kbd> 重設<br>
+          <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> 切換時鐘／秒錶／倒數／番茄鐘<br>
+          <kbd>空白鍵</kbd> 開始或暫停 ・ <kbd>L</kbd> 計圈 ・ <kbd>N</kbd> 跳過本段 ・ <kbd>R</kbd> 重設<br>
           <kbd>F</kbd> 全螢幕 ・ <kbd>H</kbd> 12/24 小時 ・ <kbd>M</kbd> 毫秒 ・ <kbd>S</kbd> 秒<br>
           <kbd>C</kbd> 換色調 ・ <kbd>D</kbd> 深淺 ・ <kbd>K</kbd> 不休眠 ・ <kbd>,</kbd> 設定 ・ <kbd>Esc</kbd> 關閉
         </p>

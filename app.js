@@ -19,6 +19,7 @@
     ms: $('#ms'), date: $('#date'), ampm: $('#ampm'), tz: $('#tz'), status: $('#status'),
     hint: $('#hint'), bar: $('#bar'),
     progress: $('#progress'), fill: $('#progress-fill'),
+    phase: $('#phase'), dots: $('#dots'),
     presets: $('#presets'), cSet: $('#c-set'), cH: $('#c-h'), cM: $('#c-m'), cS: $('#c-s'),
     laps: $('#laps'),
     actions: $('#actions'), aPrimary: $('#a-primary'), aSecond: $('#a-second'), aReset: $('#a-reset'),
@@ -34,6 +35,8 @@
     hour12: false, showSeconds: true, showMs: true, showDate: true, showTz: true, tz: 'auto',
     // 秒錶與倒數
     beep: true, vibrate: true, showLaps: true,
+    // 番茄鐘（單位：分鐘）
+    pomoFocus: 25, pomoShort: 5, pomoLong: 15, pomoRounds: 4, pomoAuto: true,
     // 外觀
     mode: 'auto', theme: 'neutral', font: 'sans', weight: 300, scale: 100,
     // 效果
@@ -128,8 +131,18 @@
   const sw = { running: false, accum: 0, anchor: 0, laps: [] };
   const cd = { running: false, remain: 0, total: 0, anchor: 0, done: false };
 
+  // 番茄鐘：done = 這個循環已完成幾段專注；started = 這一段有沒有被啟動過
+  const pm = { running: false, phase: 'focus', done: 0, remain: 0, anchor: 0, started: false };
+  const PHASE_NAME = { focus: '專注', short: '短休息', long: '長休息' };
+
   const swElapsed = () => sw.accum + (sw.running ? performance.now() - sw.anchor : 0);
   const cdRemain = () => Math.max(0, cd.remain - (cd.running ? performance.now() - cd.anchor : 0));
+
+  const pmTotal = () => ({ focus: state.pomoFocus, short: state.pomoShort, long: state.pomoLong }[pm.phase] || 25) * 60000;
+  // 還沒啟動的段落直接回傳完整長度，設定改了會立刻反映
+  const pmRemain = () => (pm.started
+    ? Math.max(0, pm.remain - (pm.running ? performance.now() - pm.anchor : 0))
+    : pmTotal());
 
   function saveRuntime() {
     try {
@@ -137,6 +150,7 @@
         at: Date.now(),
         sw: { running: sw.running, accum: swElapsed(), laps: sw.laps },
         cd: { running: cd.running, remain: cdRemain(), total: cd.total, done: cd.done },
+        pm: { running: pm.running, remain: pmRemain(), phase: pm.phase, done: pm.done, started: pm.started },
       }));
     } catch { /* 無痕模式就算了 */ }
   }
@@ -164,6 +178,22 @@
         cd.running = !!r.cd.running;
         cd.remain = Math.max(0, left);
         cd.anchor = performance.now();
+      }
+    }
+    if (r.pm) {
+      pm.phase = PHASE_NAME[r.pm.phase] ? r.pm.phase : 'focus';
+      pm.done = +r.pm.done || 0;
+      pm.started = !!r.pm.started;
+      const left = (+r.pm.remain || 0) - (r.pm.running ? away : 0);
+      if (r.pm.running && left <= 0) {
+        // 人不在的時候這一段就跑完了，先推進階段，回來再補提示
+        pm.running = false; pm.remain = 0;
+        pmAdvance(false);
+        alarmOnLoad = true;
+      } else {
+        pm.running = !!r.pm.running;
+        pm.remain = Math.max(0, left);
+        pm.anchor = performance.now();
       }
     }
   }
@@ -207,6 +237,37 @@
   }
   function cdReset() {
     cd.running = false; cd.done = false; cd.remain = 0; cd.total = 0;
+    afterRun();
+  }
+
+  function pmToggle() {
+    if (pm.running) { pm.remain = pmRemain(); pm.running = false; }
+    else {
+      if (!pm.started) { pm.remain = pmTotal(); pm.started = true; }
+      pm.anchor = performance.now();
+      pm.running = true;
+    }
+    afterRun();
+  }
+  // 推進到下一段：專注做滿 pomoRounds 輪之後換長休息
+  function pmAdvance(autoStart) {
+    if (pm.phase === 'focus') {
+      pm.done = Math.min(state.pomoRounds, pm.done + 1);
+      pm.phase = pm.done >= state.pomoRounds ? 'long' : 'short';
+    } else {
+      if (pm.phase === 'long') pm.done = 0;
+      pm.phase = 'focus';
+    }
+    pm.started = false; pm.running = false; pm.remain = 0;
+    if (autoStart) {
+      pm.remain = pmTotal(); pm.started = true;
+      pm.anchor = performance.now(); pm.running = true;
+    }
+    afterRun();
+  }
+  function pmReset() {
+    pm.running = false; pm.started = false; pm.phase = 'focus';
+    pm.done = 0; pm.remain = 0;
     afterRun();
   }
 
@@ -326,9 +387,26 @@
     if (last.fill !== w) { el.fill.style.transform = `scaleX(${w})`; last.fill = w; }
   }
 
+  function renderPomo() {
+    const left = pmRemain();
+    if (pm.running && left <= 0) {          // 這一段剛好在這一幀跑完
+      pm.running = false; pm.remain = 0;
+      fireAlarm();
+      pmAdvance(state.pomoAuto);
+      return;
+    }
+    const b = breakdown(left);
+    setDigits(b.h, b.m, b.s, b.ms);
+
+    const total = pmTotal();
+    const w = (total > 0 ? left / total : 0).toFixed(4);
+    if (last.fill !== w) { el.fill.style.transform = `scaleX(${w})`; last.fill = w; }
+  }
+
   function tick() {
     if (state.view === 'stopwatch') renderStopwatch();
     else if (state.view === 'timer') renderTimer();
+    else if (state.view === 'pomo') renderPomo();
     else renderClock();
     requestAnimationFrame(tick);
   }
@@ -356,6 +434,18 @@
     el.laps.replaceChildren(...rows);
   }
 
+  let dotsDrawn = '';
+  function drawDots() {
+    const key = state.pomoRounds + '/' + pm.done;
+    if (dotsDrawn === key) return;
+    dotsDrawn = key;
+    el.dots.replaceChildren(...Array.from({ length: state.pomoRounds }, (_, i) => {
+      const d = document.createElement('i');
+      if (i < pm.done) d.className = 'on';
+      return d;
+    }));
+  }
+
   /* ===================== 套用設定 ===================== */
   const mq = window.matchMedia('(prefers-color-scheme: light)');
   const resolvedMode = () => (state.mode === 'auto' ? (mq.matches ? 'light' : 'dark') : state.mode);
@@ -379,6 +469,7 @@
     // 強迫下一幀重畫（不能用空字串，否則「AM 變成空白」會被當成沒變）
     for (const k of Object.keys(last)) last[k] = null;
     lapsDrawn = -1;
+    dotsDrawn = '';
     refreshOffset(Date.now(), true);
 
     syncViewUI();
@@ -412,8 +503,9 @@
 
     el.actions.hidden = isClock;
     el.laps.hidden = !(v === 'stopwatch' && state.showLaps && sw.laps.length);
-    el.progress.hidden = !(v === 'timer' && cd.total > 0);
+    el.progress.hidden = !(v === 'pomo' || (v === 'timer' && cd.total > 0));
     el.presets.hidden = !(v === 'timer' && !cd.running);
+    el.phase.hidden = el.dots.hidden = v !== 'pomo';
 
     if (!state.blink || !isClock) {
       last.sep = null;
@@ -438,6 +530,16 @@
       el.aSecond.disabled = false;
       el.aReset.disabled = cd.total === 0;
       status = cd.done ? '時間到' : (!cd.running && left > 0 && left < cd.total ? '暫停中' : '');
+    } else if (v === 'pomo') {
+      el.aPrimary.textContent = pm.running ? '暫停' : (pm.started ? '繼續' : '開始');
+      el.aSecond.textContent = '跳過';
+      el.aSecond.hidden = false;
+      el.aSecond.disabled = false;
+      el.aReset.disabled = !pm.started && pm.done === 0 && pm.phase === 'focus';
+      el.phase.textContent = PHASE_NAME[pm.phase];
+      el.phase.classList.toggle('focus', pm.phase === 'focus');
+      if (!pm.running && pm.started) status = '暫停中';
+      drawDots();
     }
     if (v !== 'timer') el.aPrimary.disabled = false;
     put(el.status, 'status', status);
@@ -451,7 +553,8 @@
       btn.classList.toggle('on', v === 'timer' && +btn.dataset.sec === sec));
 
     // 字級檔位：算目前實際會顯示幾個字元
-    const showH = v === 'clock' ? true : breakdown(v === 'stopwatch' ? swElapsed() : cdRemain()).h !== null;
+    const elapsed = v === 'stopwatch' ? swElapsed() : v === 'pomo' ? pmRemain() : cdRemain();
+    const showH = v === 'clock' ? true : breakdown(elapsed).h !== null;
     const chars = (showH ? 3 : 0) + 2 + (el.s.hidden ? 0 : 3) + (state.showMs ? 4 : 0);
     const tier = TIERS.find((t) => chars >= t.min);
     if (last.tier !== tier.base) {
@@ -573,9 +676,10 @@
     .forEach((e) => window.addEventListener(e, resetIdle, { passive: true }));
 
   /* ===================== 主要動作 ===================== */
-  const primary = () => (state.view === 'timer' ? cdToggle() : state.view === 'stopwatch' ? swToggle() : null);
-  const second = () => (state.view === 'timer' ? cdAdd(60) : state.view === 'stopwatch' ? swLap() : null);
-  const doReset = () => (state.view === 'timer' ? cdReset() : state.view === 'stopwatch' ? swReset() : null);
+  const byView = (map) => () => { const fn = map[state.view]; if (fn) fn(); };
+  const primary = byView({ stopwatch: swToggle, timer: cdToggle, pomo: pmToggle });
+  const second = byView({ stopwatch: swLap, timer: () => cdAdd(60), pomo: () => pmAdvance(state.pomoAuto) });
+  const doReset = byView({ stopwatch: swReset, timer: cdReset, pomo: pmReset });
 
   const setView = (v) => { state.view = v; apply(true); };
 
@@ -584,8 +688,10 @@
     '1': () => setView('clock'),
     '2': () => setView('stopwatch'),
     '3': () => setView('timer'),
+    '4': () => setView('pomo'),
     ' ': primary,
     'l': second,
+    'n': second,
     'r': doReset,
     'f': toggleFullscreen,
     'h': () => { state.hour12 = !state.hour12; apply(true); },

@@ -130,6 +130,28 @@ html, body {
 .meta span[hidden] { display: none; }
 .meta .status { letter-spacing: .1em; }
 
+/* ---------- 番茄鐘：階段標籤與輪數 ---------- */
+.phase {
+  font-size: clamp(13px, 2.6vw, 26px);
+  letter-spacing: .3em;
+  color: var(--dim);
+  margin-bottom: clamp(10px, 2vh, 26px);
+}
+.phase[hidden] { display: none; }
+.phase.focus { color: var(--fg); opacity: .8; }
+
+.dots {
+  display: flex; gap: 10px; justify-content: center;
+  margin-top: clamp(12px, 2.4vh, 22px);
+}
+.dots[hidden] { display: none; }
+.dots i {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1.5px solid var(--dim);
+  transition: background-color .2s, border-color .2s;
+}
+.dots i.on { background: var(--fg); border-color: var(--fg); }
+
 /* ---------- 倒數：進度條 ---------- */
 .progress {
   width: min(70vw, 640px);
@@ -426,6 +448,14 @@ kbd {
   font: inherit; font-size: 13px; cursor: pointer; opacity: .7;
 }
 .reset:hover { background: var(--chip); opacity: 1; }
+
+/* 小螢幕：控制列要塞得下四個模式 */
+@media (max-width: 430px) {
+  .bar { gap: 2px; padding: 4px; }
+  .bar-seg button { padding: 9px 7px; font-size: 12px; }
+  .bar-div { margin: 6px 2px; }
+  .btn { min-width: 38px; padding: 0 8px; font-size: 14px; }
+}
 
 /* 橫向矮螢幕：讓時間吃高度而不是寬度 */
 @media (orientation: landscape) and (max-height: 500px) {
