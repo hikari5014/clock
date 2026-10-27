@@ -346,7 +346,9 @@ html, body {
   -webkit-backdrop-filter: blur(14px);
   transition: opacity .35s ease, transform .35s ease;
 }
-.stage.idle .bar, .stage.idle .hint {
+/* 工具列隱藏時只淡出、不位移，且仍可點：點一下就直接觸發，不必先點醒 */
+.stage.idle .bar { opacity: 0; }
+.stage.idle .hint {
   opacity: 0;
   transform: translate(-50%, 12px);
   pointer-events: none;
@@ -364,7 +366,10 @@ html, body {
   cursor: pointer; opacity: .6;
   transition: opacity .2s ease, background-color .2s ease;
 }
-.btn:hover { opacity: 1; background: var(--chip); }
+/* 只在有滑鼠的裝置套用 hover，避免手機第一下被當成 hover 吃掉 */
+@media (hover: hover) {
+  .btn:hover { opacity: 1; background: var(--chip); }
+}
 .btn.on { opacity: 1; background: var(--chip-on); }
 
 .hint {
