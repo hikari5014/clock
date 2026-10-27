@@ -1,9 +1,11 @@
 /* 最小可用的離線快取：安裝時抓齊檔案，之後 cache-first。
- * 改版時把 CACHE 的版本號 +1 就會重新抓。 */
-const CACHE = 'millis-v6';
+ * 快取名稱跟著 version.js 的版本號走，改版只要改那一份。 */
+importScripts('version.js');
+const CACHE = 'millis-' + self.MILLIS.version;
 const ASSETS = [
   './',
   './index.html',
+  './version.js',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
@@ -26,6 +28,11 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // 檢查更新時一定要問網路，不能拿快取裡的舊版本號
+  if (new URL(e.request.url).searchParams.has('check')) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
       // 順手把新抓到的同源檔案存起來

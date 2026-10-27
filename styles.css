@@ -527,6 +527,16 @@ kbd {
   font: inherit; font-size: 13px; cursor: pointer; opacity: .7;
 }
 .reset:hover { background: var(--chip); opacity: 1; }
+.reset:disabled { opacity: .4; cursor: default; }
+#update-msg { margin-top: 8px; text-align: center; }
+
+.ver { font-family: var(--f-mono); font-size: 13px; color: var(--dim); }
+.log { margin-top: 12px; font-size: 13px; }
+.log summary { cursor: pointer; padding: 8px 0; color: var(--dim); }
+.log ol { list-style: none; }
+.log > ol > li { padding: 8px 0; border-top: 1px solid var(--line); }
+.log b { font-weight: 600; font-size: 12px; }
+.log ul { margin: 4px 0 0 1.2em; color: var(--dim); line-height: 1.7; }
 
 /* 小螢幕：控制列要塞得下四個模式 */
 @media (max-width: 430px) {

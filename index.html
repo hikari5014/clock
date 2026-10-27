@@ -256,6 +256,17 @@
             <option value="0">不隱藏</option>
           </select>
         </div>
+        <p class="note">要在哪些模式自動隱藏：</p>
+        <div class="row"><label for="t-hide-clock">時鐘</label>
+          <input type="checkbox" class="sw" id="t-hide-clock" data-toggle="hideClock"></div>
+        <div class="row"><label for="t-hide-sw">秒錶</label>
+          <input type="checkbox" class="sw" id="t-hide-sw" data-toggle="hideStopwatch"></div>
+        <div class="row"><label for="t-hide-timer">倒數</label>
+          <input type="checkbox" class="sw" id="t-hide-timer" data-toggle="hideTimer"></div>
+        <div class="row"><label for="t-hide-pomo">番茄鐘</label>
+          <input type="checkbox" class="sw" id="t-hide-pomo" data-toggle="hidePomo"></div>
+        <div class="row"><label for="t-hide-target">目標時間</label>
+          <input type="checkbox" class="sw" id="t-hide-target" data-toggle="hideTarget"></div>
 
         <div class="row"><label for="t-wake">螢幕不休眠</label>
           <input type="checkbox" class="sw" id="t-wake" data-toggle="wake"></div>
@@ -272,9 +283,21 @@
         </p>
         <button class="reset" id="btn-reset">恢復預設值</button>
       </section>
+
+      <section class="grp">
+        <h3>版本</h3>
+        <div class="row"><label>目前版本</label><span class="ver" id="ver"></span></div>
+        <button class="reset" id="btn-update">檢查更新</button>
+        <p class="note" id="update-msg" hidden></p>
+        <details class="log">
+          <summary>更新記錄</summary>
+          <ol id="changelog"></ol>
+        </details>
+      </section>
     </div>
   </aside>
 
+  <script src="version.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -29,6 +29,7 @@
     bFull: $('#btn-fullscreen'), bLock: $('#btn-lock'), bSet: $('#btn-settings'),
     sheet: $('#sheet'), scrim: $('#scrim'), bClose: $('#btn-close'), bReset: $('#btn-reset'),
     selTz: $('#sel-tz'), outScale: $('#out-scale'), wakeNote: $('#wake-note'),
+    ver: $('#ver'), bUpdate: $('#btn-update'), updateMsg: $('#update-msg'), changelog: $('#changelog'),
   };
 
   /* ===================== 設定 ===================== */
@@ -46,6 +47,8 @@
     mode: 'auto', theme: 'neutral', font: 'sans', weight: 300, scale: 100,
     // 效果
     glow: 'off', blink: false, fade: true, autoHide: 3, wake: false,
+    // 哪些模式要自動隱藏控制列：預設只有時鐘
+    hideClock: true, hideStopwatch: false, hideTimer: false, hidePomo: false, hideTarget: false,
   };
   const KEY = 'millis.v2';
   const RT_KEY = 'millis.runtime';
@@ -839,10 +842,11 @@
 
   /* ===================== 閒置自動隱藏 ===================== */
   let idleTimer;
+  const HIDE_KEY = { clock: 'hideClock', stopwatch: 'hideStopwatch', timer: 'hideTimer', pomo: 'hidePomo', target: 'hideTarget' };
   function resetIdle() {
     clearTimeout(idleTimer);
     el.stage.classList.remove('idle');
-    if (sheetOpen || !state.autoHide) return;
+    if (sheetOpen || !state.autoHide || !state[HIDE_KEY[state.view]]) return;
     idleTimer = setTimeout(() => el.stage.classList.add('idle'), state.autoHide * 1000);
   }
   ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart']
@@ -950,6 +954,47 @@
   requestAnimationFrame(tick);
 
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}));
   }
+
+  /* ===================== 版本與更新 ===================== */
+  const { version, changelog } = self.MILLIS;
+  el.ver.textContent = 'v' + version;
+  changelog.forEach((c) => {
+    const li = document.createElement('li');
+    const head = document.createElement('b');
+    head.textContent = `v${c.v}　${c.date}`;
+    const ul = document.createElement('ul');
+    c.notes.forEach((n) => { const x = document.createElement('li'); x.textContent = n; ul.append(x); });
+    li.append(head, ul);
+    el.changelog.append(li);
+  });
+
+  const say = (t) => { el.updateMsg.textContent = t; el.updateMsg.hidden = !t; };
+  async function checkUpdate() {
+    el.bUpdate.disabled = true;
+    say('檢查中…');
+    try {
+      const txt = await (await fetch('version.js?check=' + Date.now(), { cache: 'no-store' })).text();
+      const latest = (txt.match(/version:\s*'([^']+)'/) || [])[1];
+      if (!latest) throw new Error();
+      if (latest === version) { say('已經是最新版本'); return; }
+      say(`發現新版 v${latest}，更新中…`);
+      const reg = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        // 新版 Service Worker 接手後就重新整理；太久沒反應也直接重整
+        navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+        setTimeout(() => location.reload(), 8000);
+        await reg.update();
+      } else {
+        location.reload();
+      }
+    } catch {
+      say('檢查失敗，請確認網路連線');
+    } finally {
+      el.bUpdate.disabled = false;
+    }
+  }
+  el.bUpdate.addEventListener('click', checkUpdate);
 })();
